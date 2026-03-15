@@ -1,0 +1,73 @@
+<!-- templates/base.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}DevOps Utility Hub{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+  {% block head %}{% endblock %}
+</head>
+<body>
+
+  <!-- ── Sidebar ──────────────────────────────────────────────── -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon">⚙</div>
+      <div>
+        <div class="logo-text">DevOps Hub</div>
+        <div class="logo-sub">v1.0.0 · utility</div>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">Overview</div>
+      <a href="{{ url_for('index') }}"      class="nav-item {% if request.endpoint == 'index' %}active{% endif %}">
+        <span class="icon">🏠</span> Dashboard
+      </a>
+
+      <div class="nav-section-label" style="margin-top:12px">Tools</div>
+      <a href="{{ url_for('system') }}"     class="nav-item {% if request.endpoint == 'system' %}active{% endif %}">
+        <span class="icon">📊</span> System Monitor
+      </a>
+      <a href="{{ url_for('logs') }}"       class="nav-item {% if request.endpoint == 'logs' %}active{% endif %}">
+        <span class="icon">📋</span> Log Analyzer
+      </a>
+      <a href="{{ url_for('docker') }}"     class="nav-item {% if request.endpoint == 'docker' %}active{% endif %}">
+        <span class="icon">🐋</span> Docker Status
+      </a>
+      <a href="{{ url_for('kubernetes') }}" class="nav-item {% if request.endpoint == 'kubernetes' %}active{% endif %}">
+        <span class="icon">☸</span> Kubernetes
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div style="margin-bottom:4px">Flask · psutil · Docker SDK</div>
+      <div style="color:var(--accent)">● Online</div>
+    </div>
+  </aside>
+
+  <!-- ── Main ─────────────────────────────────────────────────── -->
+  <div class="main">
+    <header class="topbar">
+      <div>
+        <div class="topbar-title">{% block page_title %}Dashboard{% endblock %}</div>
+        <div class="topbar-subtitle">{% block page_subtitle %}DevOps Utility Hub{% endblock %}</div>
+      </div>
+      <div class="topbar-right">
+        {% block topbar_actions %}{% endblock %}
+        <span class="badge accent">
+          <span class="dot pulse" style="color:var(--accent)"></span>
+          Live
+        </span>
+      </div>
+    </header>
+
+    <main class="content">
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+
+  {% block scripts %}{% endblock %}
+</body>
+</html>

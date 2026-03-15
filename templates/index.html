@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard — DevOps Utility Hub{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+{% block page_subtitle %}System overview &amp; quick access{% endblock %}
+
+{% block content %}
+<div class="grid grid-4 mb-16">
+  <div class="stat-tile accent" id="tile-cpu">
+    <div class="label">CPU Usage</div>
+    <div class="value" id="dash-cpu">—</div>
+    <div class="sub" id="dash-cpu-cores">loading…</div>
+  </div>
+  <div class="stat-tile green" id="tile-mem">
+    <div class="label">Memory</div>
+    <div class="value" id="dash-mem">—</div>
+    <div class="sub" id="dash-mem-avail">loading…</div>
+  </div>
+  <div class="stat-tile yellow" id="tile-disk">
+    <div class="label">Disk (root)</div>
+    <div class="value" id="dash-disk">—</div>
+    <div class="sub" id="dash-disk-free">loading…</div>
+  </div>
+  <div class="stat-tile purple" id="tile-uptime">
+    <div class="label">Uptime</div>
+    <div class="value" id="dash-uptime" style="font-size:18px;margin-top:4px">—</div>
+    <div class="sub" id="dash-host">loading…</div>
+  </div>
+</div>
+
+<div class="grid grid-2 gap-20">
+  <!-- Quick links -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Quick Access</div>
+    </div>
+    <div class="grid grid-2 gap-12">
+      <a href="{{ url_for('system') }}" class="quick-card" style="text-decoration:none;">
+        <div class="quick-icon" style="background:var(--accent-dim);color:var(--accent)">📊</div>
+        <div class="quick-name">System Monitor</div>
+        <div class="quick-desc">CPU, memory, disk, network &amp; processes</div>
+      </a>
+      <a href="{{ url_for('logs') }}" class="quick-card" style="text-decoration:none;">
+        <div class="quick-icon" style="background:var(--green-dim);color:var(--green)">📋</div>
+        <div class="quick-name">Log Analyzer</div>
+        <div class="quick-desc">Parse, filter &amp; summarise log files</div>
+      </a>
+      <a href="{{ url_for('docker') }}" class="quick-card" style="text-decoration:none;">
+        <div class="quick-icon" style="background:rgba(0,160,255,.12);color:#00a0ff">🐋</div>
+        <div class="quick-name">Docker Status</div>
+        <div class="quick-desc">Running, stopped &amp; paused containers</div>
+      </a>
+      <a href="{{ url_for('kubernetes') }}" class="quick-card" style="text-decoration:none;">
+        <div class="quick-icon" style="background:rgba(167,139,250,.12);color:var(--purple)">☸</div>
+        <div class="quick-name">Kubernetes</div>
+        <div class="quick-desc">Pod health across namespaces</div>
+      </a>
+    </div>
+  </div>
+
+  <!-- System info -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">System Info</div>
+    </div>
+    <div id="sys-info-table">
+      <div style="display:flex;flex-direction:column;gap:10px">
+        {% for i in range(6) %}
+        <div class="skeleton" style="height:18px;width:{% if loop.index % 2 == 0 %}70{% else %}90{% endif %}%"></div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+.quick-card {
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  cursor: pointer;
+  transition: border-color var(--transition), background var(--transition);
+}
+.quick-card:hover { border-color: var(--border-hi); background: var(--bg-3); }
+.quick-icon { width: 36px; height: 36px; border-radius: var(--radius); display:flex; align-items:center; justify-content:center; font-size:18px; }
+.quick-name { font-size: 13px; font-weight: 600; color: var(--text-0); }
+.quick-desc { font-size: 11px; color: var(--text-2); }
+
+.info-row { display:flex; justify-content:space-between; padding: 6px 0; border-bottom: 1px solid var(--border); font-size:12px; }
+.info-row:last-child { border-bottom: none; }
+.info-key { color: var(--text-2); }
+.info-val { color: var(--text-0); font-family: var(--font-mono); }
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function fetchStats() {
+  try {
+    const r = await fetch('/api/system/stats');
+    const d = await r.json();
+
+    // Tiles
+    document.getElementById('dash-cpu').textContent   = d.cpu.percent + '%';
+    document.getElementById('dash-cpu-cores').textContent = d.cpu.core_count_logical + ' logical cores';
+    document.getElementById('dash-mem').textContent   = d.memory.virtual.percent + '%';
+    document.getElementById('dash-mem-avail').textContent = d.memory.virtual.available_gb + ' GB free';
+    const root = d.disks.find(x => x.mountpoint === '/') || d.disks[0];
+    if (root) {
+      document.getElementById('dash-disk').textContent   = root.percent + '%';
+      document.getElementById('dash-disk-free').textContent = root.free_gb + ' GB free';
+    }
+    document.getElementById('dash-uptime').textContent = d.system.uptime;
+    document.getElementById('dash-host').textContent   = d.system.hostname;
+
+    // System info table
+    const rows = [
+      ['OS',          d.system.os + ' ' + d.system.os_release],
+      ['Architecture', d.system.architecture],
+      ['Hostname',    d.system.hostname],
+      ['Boot Time',   d.system.boot_time],
+      ['Python',      d.system.python_version],
+      ['CPU Freq',    d.cpu.freq_current_mhz ? d.cpu.freq_current_mhz + ' MHz' : 'N/A'],
+    ];
+    document.getElementById('sys-info-table').innerHTML =
+      rows.map(([k,v]) =>
+        `<div class="info-row"><span class="info-key">${k}</span><span class="info-val">${v}</span></div>`
+      ).join('');
+  } catch(e) {
+    console.error(e);
+  }
+}
+
+fetchStats();
+setInterval(fetchStats, 8000);
+</script>
+{% endblock %}

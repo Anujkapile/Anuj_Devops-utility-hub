@@ -1,0 +1,255 @@
+{% extends "base.html" %}
+
+{% block title %}Kubernetes — DevOps Utility Hub{% endblock %}
+{% block page_title %}Kubernetes{% endblock %}
+{% block page_subtitle %}Pod health across namespaces{% endblock %}
+
+{% block topbar_actions %}
+<input class="form-control" type="text" id="ns-input" placeholder="namespace" value="default"
+  style="width:160px;padding:6px 10px" onkeydown="if(event.key==='Enter')fetchPods()">
+<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-1);cursor:pointer">
+  <input type="checkbox" id="all-ns" onchange="fetchPods()"> All namespaces
+</label>
+<button class="btn btn-ghost" onclick="fetchPods()">↻ Refresh</button>
+{% endblock %}
+
+{% block content %}
+
+<!-- Summary tiles -->
+<div class="grid grid-4 mb-20" style="grid-template-columns:repeat(6,1fr)">
+  <div class="stat-tile accent">
+    <div class="label">Total</div>
+    <div class="value" id="k-total">—</div>
+  </div>
+  <div class="stat-tile green">
+    <div class="label">Running</div>
+    <div class="value" id="k-running">—</div>
+  </div>
+  <div class="stat-tile yellow">
+    <div class="label">Pending</div>
+    <div class="value" id="k-pending">—</div>
+  </div>
+  <div class="stat-tile red">
+    <div class="label">Failed</div>
+    <div class="value" id="k-failed">—</div>
+  </div>
+  <div class="stat-tile purple">
+    <div class="label">Succeeded</div>
+    <div class="value" id="k-succeeded">—</div>
+  </div>
+  <div class="stat-tile" style="">
+    <div class="label">Unknown</div>
+    <div class="value" id="k-unknown" style="color:var(--text-2)">—</div>
+  </div>
+</div>
+
+<div id="k8s-error" class="alert alert-warn mb-16" style="display:none"></div>
+
+<!-- Pod table -->
+<div class="card">
+  <div class="card-header">
+    <div class="card-title">Pod List</div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <input class="form-control" id="pod-search" type="text" placeholder="Filter pods…"
+        style="width:200px;padding:5px 10px" oninput="filterPods()">
+      <span class="badge accent" id="pod-count-badge">0 pods</span>
+    </div>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th><th>Namespace</th><th>Phase</th><th>Containers</th>
+          <th>Restarts</th><th>Node</th><th>IP</th><th>Age</th>
+        </tr>
+      </thead>
+      <tbody id="pod-table">
+        {% for i in range(5) %}
+        <tr><td colspan="8"><div class="skeleton" style="height:16px;margin:4px 0"></div></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Pod detail drawer -->
+<div id="pod-detail" class="card mt-16" style="display:none">
+  <div class="card-header">
+    <div class="card-title" id="pod-detail-name">Pod Detail</div>
+    <button class="btn btn-ghost" style="padding:4px 8px;font-size:10px" onclick="document.getElementById('pod-detail').style.display='none'">✕ Close</button>
+  </div>
+  <div id="pod-detail-content"></div>
+</div>
+
+<style>
+.phase-running   { color: var(--green); }
+.phase-pending   { color: var(--yellow); }
+.phase-failed    { color: var(--red); }
+.phase-succeeded { color: var(--purple); }
+.phase-unknown   { color: var(--text-2); }
+
+tbody tr { cursor: pointer; }
+
+.detail-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.detail-section { display: flex; flex-direction: column; gap: 6px; }
+.detail-label { font-size: 9px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--text-2); }
+.detail-value { font-family: var(--font-mono); font-size: 12px; color: var(--text-0); word-break: break-all; }
+
+.container-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 12px; background: var(--bg-2); border-radius: var(--radius);
+  font-size: 12px; margin-bottom: 6px;
+}
+
+@media (max-width: 700px) {
+  .detail-grid { grid-template-columns: 1fr 1fr; }
+}
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let allPods = [];
+
+async function fetchPods() {
+  const ns     = document.getElementById('ns-input').value.trim() || 'default';
+  const allNs  = document.getElementById('all-ns').checked;
+  const url    = '/api/k8s/pods?namespace=' + encodeURIComponent(ns) + (allNs ? '&all=true' : '');
+
+  try {
+    const r = await fetch(url);
+    const d = await r.json();
+
+    if (d.error) {
+      document.getElementById('k8s-error').textContent = '☸ ' + d.error;
+      document.getElementById('k8s-error').style.display = 'flex';
+    } else {
+      document.getElementById('k8s-error').style.display = 'none';
+    }
+
+    const s = d.summary;
+    document.getElementById('k-total').textContent     = s.total     || 0;
+    document.getElementById('k-running').textContent   = s.running   || 0;
+    document.getElementById('k-pending').textContent   = s.pending   || 0;
+    document.getElementById('k-failed').textContent    = s.failed    || 0;
+    document.getElementById('k-succeeded').textContent = s.succeeded || 0;
+    document.getElementById('k-unknown').textContent   = s.unknown   || 0;
+
+    allPods = d.pods;
+    renderPods(allPods);
+  } catch(e) {
+    document.getElementById('k8s-error').textContent = 'Failed to fetch pods: ' + e.message;
+    document.getElementById('k8s-error').style.display = 'flex';
+  }
+}
+
+function renderPods(pods) {
+  document.getElementById('pod-count-badge').textContent = pods.length + ' pods';
+  if (!pods.length) {
+    document.getElementById('pod-table').innerHTML =
+      '<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text-2)">No pods found.</td></tr>';
+    return;
+  }
+
+  document.getElementById('pod-table').innerHTML = pods.map((p, i) => {
+    const phase = (p.phase || 'Unknown').toLowerCase();
+    const readyContainers = (p.containers || []).filter(c => c.ready).length;
+    const totalContainers = (p.containers || []).length;
+    const totalRestarts   = (p.containers || []).reduce((s, c) => s + (c.restart_count || 0), 0);
+    const allReady = readyContainers === totalContainers && totalContainers > 0;
+
+    return `<tr onclick="showPodDetail(${i})">
+      <td><span class="mono" style="font-size:12px">${p.name}</span></td>
+      <td><span class="badge gray" style="font-size:10px">${p.namespace}</span></td>
+      <td><span class="phase-${phase} bold">${p.phase || 'Unknown'}</span></td>
+      <td>
+        <span class="badge ${allReady ? 'green' : 'yellow'}">${readyContainers}/${totalContainers}</span>
+      </td>
+      <td><span class="${totalRestarts > 5 ? 'text-red' : ''} mono">${totalRestarts}</span></td>
+      <td style="font-size:11px;color:var(--text-2)">${p.node || '—'}</td>
+      <td><span class="mono" style="font-size:11px">${p.pod_ip || '—'}</span></td>
+      <td style="font-size:11px;color:var(--text-2)">${p.age}</td>
+    </tr>`;
+  }).join('');
+}
+
+function filterPods() {
+  const q = document.getElementById('pod-search').value.toLowerCase();
+  if (!q) { renderPods(allPods); return; }
+  renderPods(allPods.filter(p =>
+    p.name.toLowerCase().includes(q) ||
+    (p.namespace || '').toLowerCase().includes(q) ||
+    (p.phase || '').toLowerCase().includes(q) ||
+    (p.node || '').toLowerCase().includes(q)
+  ));
+}
+
+function showPodDetail(idx) {
+  const p = allPods[idx];
+  if (!p) return;
+  document.getElementById('pod-detail-name').textContent = p.name;
+
+  const cond = (p.conditions || []).map(c =>
+    `<span class="badge ${c.status === 'True' ? 'green' : 'red'}" style="margin-right:4px">${c.type}</span>`
+  ).join('');
+
+  let html = `
+  <div class="detail-grid mb-16">
+    <div class="detail-section">
+      <div class="detail-label">Namespace</div><div class="detail-value">${p.namespace}</div>
+    </div>
+    <div class="detail-section">
+      <div class="detail-label">Phase</div><div class="detail-value phase-${(p.phase||'').toLowerCase()}">${p.phase}</div>
+    </div>
+    <div class="detail-section">
+      <div class="detail-label">Node</div><div class="detail-value">${p.node || '—'}</div>
+    </div>
+    <div class="detail-section">
+      <div class="detail-label">Pod IP</div><div class="detail-value">${p.pod_ip || '—'}</div>
+    </div>
+    <div class="detail-section">
+      <div class="detail-label">Host IP</div><div class="detail-value">${p.host_ip || '—'}</div>
+    </div>
+    <div class="detail-section">
+      <div class="detail-label">Age</div><div class="detail-value">${p.age}</div>
+    </div>
+    <div class="detail-section">
+      <div class="detail-label">Service Account</div><div class="detail-value">${p.service_account || '—'}</div>
+    </div>
+    <div class="detail-section">
+      <div class="detail-label">Restart Policy</div><div class="detail-value">${p.restart_policy || '—'}</div>
+    </div>
+    <div class="detail-section">
+      <div class="detail-label">Created</div><div class="detail-value" style="font-size:11px">${p.created_at ? p.created_at.slice(0,19) : '—'}</div>
+    </div>
+  </div>
+  ${cond ? `<div style="margin-bottom:14px"><div class="detail-label" style="margin-bottom:6px">Conditions</div>${cond}</div>` : ''}
+  <div class="detail-label" style="margin-bottom:8px">Containers (${(p.containers||[]).length})</div>`;
+
+  html += (p.containers || []).map(c => `
+    <div class="container-row">
+      <div>
+        <div style="font-weight:600;color:var(--text-0)">${c.name}</div>
+        <div style="font-size:10px;color:var(--text-2);font-family:var(--font-mono)">${c.image}</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <span class="badge ${c.ready ? 'green' : 'yellow'}">${c.state}</span>
+        ${c.reason ? `<span class="badge gray">${c.reason}</span>` : ''}
+        <span class="badge ${c.restart_count > 5 ? 'red' : 'gray'}">↺ ${c.restart_count}</span>
+      </div>
+    </div>`).join('');
+
+  document.getElementById('pod-detail-content').innerHTML = html;
+  document.getElementById('pod-detail').style.display = 'block';
+  document.getElementById('pod-detail').scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+const textRed = `.text-red{color:var(--red)}`;
+const s = document.createElement('style');
+s.textContent = textRed;
+document.head.appendChild(s);
+
+fetchPods();
+setInterval(fetchPods, 20000);
+</script>
+{% endblock %}

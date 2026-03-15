@@ -1,0 +1,246 @@
+{% extends "base.html" %}
+
+{% block title %}System Monitor — DevOps Utility Hub{% endblock %}
+{% block page_title %}System Monitor{% endblock %}
+{% block page_subtitle %}Real-time CPU, memory, disk &amp; network metrics{% endblock %}
+
+{% block topbar_actions %}
+<button class="btn btn-ghost" onclick="fetchStats()" id="refresh-btn">↻ Refresh</button>
+{% endblock %}
+
+{% block content %}
+
+<!-- Top stat tiles -->
+<div class="grid grid-4 mb-16" id="stat-tiles">
+  <div class="stat-tile accent">
+    <div class="label">CPU Usage</div>
+    <div class="value" id="cpu-pct">—</div>
+    <div class="sub" id="cpu-freq">—</div>
+  </div>
+  <div class="stat-tile green">
+    <div class="label">Memory Used</div>
+    <div class="value" id="mem-pct">—</div>
+    <div class="sub" id="mem-detail">—</div>
+  </div>
+  <div class="stat-tile yellow">
+    <div class="label">Swap Used</div>
+    <div class="value" id="swap-pct">—</div>
+    <div class="sub" id="swap-detail">—</div>
+  </div>
+  <div class="stat-tile purple">
+    <div class="label">Load Avg (1m)</div>
+    <div class="value" id="load-avg">—</div>
+    <div class="sub" id="load-sub">—</div>
+  </div>
+</div>
+
+<div class="grid grid-2 gap-20 mb-20">
+  <!-- CPU per-core -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Per-Core CPU</div>
+      <span class="badge accent" id="core-count-badge">— cores</span>
+    </div>
+    <div id="core-bars" style="display:flex;flex-direction:column;gap:8px">
+      <div class="skeleton" style="height:22px"></div>
+      <div class="skeleton" style="height:22px"></div>
+      <div class="skeleton" style="height:22px"></div>
+      <div class="skeleton" style="height:22px"></div>
+    </div>
+  </div>
+
+  <!-- Memory detail -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Memory Breakdown</div>
+    </div>
+    <div id="mem-bars" style="display:flex;flex-direction:column;gap:14px">
+      <div class="skeleton" style="height:30px"></div>
+      <div class="skeleton" style="height:30px"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Disks -->
+<div class="card mb-20">
+  <div class="card-header">
+    <div class="card-title">Disk Partitions</div>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Device</th><th>Mount</th><th>FS</th>
+          <th>Total</th><th>Used</th><th>Free</th><th>Usage</th>
+        </tr>
+      </thead>
+      <tbody id="disk-table">
+        <tr><td colspan="7"><div class="skeleton" style="height:18px;margin:4px 0"></div></td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Network -->
+<div class="grid grid-2 gap-20 mb-20">
+  <div class="card">
+    <div class="card-header"><div class="card-title">Network I/O</div></div>
+    <div id="net-io" style="display:flex;flex-direction:column;gap:10px"></div>
+  </div>
+  <div class="card">
+    <div class="card-header"><div class="card-title">Interfaces</div></div>
+    <div id="net-ifaces" style="display:flex;flex-direction:column;gap:8px"></div>
+  </div>
+</div>
+
+<!-- Top processes -->
+<div class="card">
+  <div class="card-header">
+    <div class="card-title">Top Processes by CPU</div>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>PID</th><th>Name</th><th>CPU %</th><th>Memory %</th><th>Status</th><th>User</th></tr>
+      </thead>
+      <tbody id="proc-table">
+        <tr><td colspan="6"><div class="skeleton" style="height:18px;margin:4px 0"></div></td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<style>
+.info-row { display:flex; justify-content:space-between; padding: 6px 0; border-bottom: 1px solid var(--border); font-size:12px; }
+.info-row:last-child { border-bottom: none; }
+.info-key { color: var(--text-2); }
+.info-val { color: var(--text-0); font-family: var(--font-mono); }
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function pctClass(p) {
+  if (p >= 85) return 'danger';
+  if (p >= 60) return 'warn';
+  return '';
+}
+
+function barHtml(label, pct, detail = '') {
+  const cls = pctClass(pct);
+  return `
+    <div class="progress-wrap">
+      <div class="progress-label"><span>${label}</span><span>${detail || pct + '%'}</span></div>
+      <div class="progress-bar">
+        <div class="progress-fill ${cls}" style="width:${Math.min(pct,100)}%"></div>
+      </div>
+    </div>`;
+}
+
+async function fetchStats() {
+  const btn = document.getElementById('refresh-btn');
+  btn.textContent = '↻ Loading…';
+  btn.disabled = true;
+  try {
+    const r = await fetch('/api/system/stats');
+    const d = await r.json();
+
+    // CPU tiles
+    document.getElementById('cpu-pct').textContent  = d.cpu.percent + '%';
+    document.getElementById('cpu-freq').textContent = d.cpu.freq_current_mhz
+      ? d.cpu.freq_current_mhz + ' MHz · ' + d.cpu.core_count_physical + 'p/' + d.cpu.core_count_logical + 'l cores'
+      : d.cpu.core_count_logical + ' logical cores';
+
+    // Memory tile
+    const vm = d.memory.virtual;
+    document.getElementById('mem-pct').textContent    = vm.percent + '%';
+    document.getElementById('mem-detail').textContent = vm.used_gb + ' / ' + vm.total_gb + ' GB';
+
+    // Swap tile
+    const sw = d.memory.swap;
+    document.getElementById('swap-pct').textContent    = sw.percent + '%';
+    document.getElementById('swap-detail').textContent = sw.used_gb + ' / ' + sw.total_gb + ' GB';
+
+    // Load avg tile
+    if (d.cpu.load_avg) {
+      document.getElementById('load-avg').textContent = d.cpu.load_avg[0];
+      document.getElementById('load-sub').textContent = '5m: ' + d.cpu.load_avg[1] + '  15m: ' + d.cpu.load_avg[2];
+    } else {
+      document.getElementById('load-avg').textContent = 'N/A';
+      document.getElementById('load-sub').textContent = 'Not available on this OS';
+    }
+
+    // Per-core bars
+    document.getElementById('core-count-badge').textContent = d.cpu.core_count_logical + ' cores';
+    document.getElementById('core-bars').innerHTML =
+      d.cpu.per_core.map((p, i) => barHtml('Core ' + i, p)).join('');
+
+    // Memory breakdown
+    document.getElementById('mem-bars').innerHTML =
+      barHtml('RAM', vm.percent, vm.used_gb + ' GB / ' + vm.total_gb + ' GB') +
+      barHtml('Swap', sw.percent, sw.used_gb + ' GB / ' + sw.total_gb + ' GB');
+
+    // Disk table
+    document.getElementById('disk-table').innerHTML = d.disks.map(dk => `
+      <tr>
+        <td><span class="mono">${dk.device}</span></td>
+        <td><span class="mono">${dk.mountpoint}</span></td>
+        <td><span class="badge gray">${dk.fstype}</span></td>
+        <td class="mono">${dk.total_gb} GB</td>
+        <td class="mono">${dk.used_gb} GB</td>
+        <td class="mono">${dk.free_gb} GB</td>
+        <td style="width:140px">
+          <div class="progress-bar">
+            <div class="progress-fill ${pctClass(dk.percent)}" style="width:${dk.percent}%"></div>
+          </div>
+          <div style="font-size:10px;color:var(--text-2);margin-top:2px;font-family:var(--font-mono)">${dk.percent}%</div>
+        </td>
+      </tr>`).join('');
+
+    // Network I/O
+    const net = d.network;
+    document.getElementById('net-io').innerHTML = `
+      <div class="info-row"><span class="info-key">Sent</span><span class="info-val">${net.bytes_sent_mb} MB (${net.packets_sent.toLocaleString()} pkts)</span></div>
+      <div class="info-row"><span class="info-key">Received</span><span class="info-val">${net.bytes_recv_mb} MB (${net.packets_recv.toLocaleString()} pkts)</span></div>
+      <div class="info-row"><span class="info-key">Errors In</span><span class="info-val">${net.errors_in}</span></div>
+      <div class="info-row"><span class="info-key">Errors Out</span><span class="info-val">${net.errors_out}</span></div>`;
+
+    document.getElementById('net-ifaces').innerHTML = net.interfaces.slice(0, 8).map(iface => `
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)">
+        <div>
+          <div style="font-size:12px;font-weight:600;color:var(--text-0)">${iface.name}</div>
+          <div style="font-size:10px;color:var(--text-2);font-family:var(--font-mono)">${iface.ipv4 || 'no IPv4'}</div>
+        </div>
+        <span class="badge ${iface.is_up ? 'green' : 'red'}">${iface.is_up ? 'UP' : 'DOWN'}</span>
+      </div>`).join('');
+
+    // Processes
+    document.getElementById('proc-table').innerHTML = d.top_processes.map(p => `
+      <tr>
+        <td><span class="mono">${p.pid}</span></td>
+        <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.name}</td>
+        <td>
+          <div style="display:flex;align-items:center;gap:8px">
+            <div class="progress-bar" style="width:60px">
+              <div class="progress-fill ${pctClass(p.cpu_percent)}" style="width:${Math.min(p.cpu_percent,100)}%"></div>
+            </div>
+            <span class="mono" style="font-size:11px">${p.cpu_percent}%</span>
+          </div>
+        </td>
+        <td><span class="mono">${p.memory_percent}%</span></td>
+        <td><span class="badge ${p.status === 'running' ? 'green' : 'gray'}">${p.status}</span></td>
+        <td style="color:var(--text-2);font-size:11px">${p.username || '—'}</td>
+      </tr>`).join('');
+
+  } catch(e) {
+    console.error(e);
+  } finally {
+    btn.textContent = '↻ Refresh';
+    btn.disabled = false;
+  }
+}
+
+fetchStats();
+setInterval(fetchStats, 10000);
+</script>
+{% endblock %}

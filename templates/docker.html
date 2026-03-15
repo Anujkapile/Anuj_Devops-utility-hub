@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+
+{% block title %}Docker Status — DevOps Utility Hub{% endblock %}
+{% block page_title %}Docker Status{% endblock %}
+{% block page_subtitle %}Container health, ports &amp; resource limits{% endblock %}
+
+{% block topbar_actions %}
+<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-1);cursor:pointer">
+  <input type="checkbox" id="show-all" checked onchange="fetchContainers()"> Show stopped
+</label>
+<button class="btn btn-ghost" onclick="fetchContainers()">↻ Refresh</button>
+{% endblock %}
+
+{% block content %}
+
+<!-- Summary tiles -->
+<div class="grid grid-4 mb-20" id="docker-tiles">
+  <div class="stat-tile green">
+    <div class="label">Running</div>
+    <div class="value" id="dt-running">—</div>
+    <div class="sub">containers</div>
+  </div>
+  <div class="stat-tile red">
+    <div class="label">Stopped</div>
+    <div class="value" id="dt-stopped">—</div>
+    <div class="sub">containers</div>
+  </div>
+  <div class="stat-tile yellow">
+    <div class="label">Paused</div>
+    <div class="value" id="dt-paused">—</div>
+    <div class="sub">containers</div>
+  </div>
+  <div class="stat-tile accent">
+    <div class="label">Total</div>
+    <div class="value" id="dt-total">—</div>
+    <div class="sub">containers</div>
+  </div>
+</div>
+
+<div id="docker-error" class="alert alert-warn mb-16" style="display:none"></div>
+
+<!-- Container cards -->
+<div id="container-grid" style="display:grid;gap:14px">
+  {% for i in range(3) %}
+  <div class="skeleton" style="height:100px;border-radius:12px"></div>
+  {% endfor %}
+</div>
+
+<style>
+.container-card {
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 16px 20px;
+  display: grid;
+  grid-template-columns: 200px 1fr 1fr 160px;
+  gap: 16px;
+  align-items: center;
+  transition: border-color var(--transition);
+}
+.container-card:hover { border-color: var(--border-hi); }
+.container-card.running { border-left: 3px solid var(--green); }
+.container-card.exited  { border-left: 3px solid var(--text-2); }
+.container-card.paused  { border-left: 3px solid var(--yellow); }
+
+.cname { font-weight: 600; font-size: 13px; color: var(--text-0); overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+.cimage { font-size: 11px; color: var(--text-2); font-family: var(--font-mono); overflow:hidden;text-overflow:ellipsis;white-space:nowrap; margin-top: 3px; }
+
+.cprop-label { font-size: 9px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--text-2); margin-bottom: 3px; }
+.cprop-value { font-family: var(--font-mono); font-size: 11px; color: var(--text-1); }
+
+@media (max-width: 860px) {
+  .container-card { grid-template-columns: 1fr 1fr; grid-template-rows: auto auto; }
+}
+@media (max-width: 540px) {
+  .container-card { grid-template-columns: 1fr; }
+}
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function fetchContainers() {
+  const showAll = document.getElementById('show-all').checked;
+  try {
+    const r = await fetch('/api/docker/containers?all=' + showAll);
+    const d = await r.json();
+
+    if (d.error) {
+      document.getElementById('docker-error').textContent = '🐋 ' + d.error;
+      document.getElementById('docker-error').style.display = 'flex';
+    } else {
+      document.getElementById('docker-error').style.display = 'none';
+    }
+
+    const s = d.summary;
+    document.getElementById('dt-running').textContent = s.running;
+    document.getElementById('dt-stopped').textContent = s.stopped;
+    document.getElementById('dt-paused').textContent  = s.paused;
+    document.getElementById('dt-total').textContent   = s.total;
+
+    if (!d.containers.length) {
+      document.getElementById('container-grid').innerHTML =
+        '<div style="text-align:center;padding:40px;color:var(--text-2)">No containers found.</div>';
+      return;
+    }
+
+    document.getElementById('container-grid').innerHTML = d.containers.map(c => {
+      const running = c.state.running;
+      const paused  = c.state.paused;
+      const cls     = running ? 'running' : (paused ? 'paused' : 'exited');
+      const badgeCls = running ? 'green' : (paused ? 'yellow' : 'red');
+      const ports = c.ports.length ? c.ports.slice(0,2).join('<br>') : '—';
+      const nets  = Object.keys(c.networks).slice(0,2).join(', ') || '—';
+
+      return `
+      <div class="container-card ${cls}">
+        <div>
+          <div class="cname">${c.name}</div>
+          <div class="cimage">${c.image}</div>
+          <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
+            <span class="badge ${badgeCls}"><span class="dot ${running?'pulse':''}"></span>${c.status}</span>
+            ${c.restart_policy !== 'no' ? `<span class="badge gray">${c.restart_policy}</span>` : ''}
+          </div>
+        </div>
+        <div>
+          <div class="cprop-label">Ports</div>
+          <div class="cprop-value">${ports}</div>
+        </div>
+        <div>
+          <div class="cprop-label">Networks</div>
+          <div class="cprop-value">${nets}</div>
+          <div class="cprop-label" style="margin-top:10px">CPU Limit</div>
+          <div class="cprop-value">${c.resource_limits.cpu_quota}</div>
+        </div>
+        <div>
+          <div class="cprop-label">ID</div>
+          <div class="cprop-value">${c.id}</div>
+          <div class="cprop-label" style="margin-top:10px">Uptime</div>
+          <div class="cprop-value">${c.uptime || (c.state.exit_code != null ? 'exit:'+c.state.exit_code : '—')}</div>
+          <div class="cprop-label" style="margin-top:10px">Memory</div>
+          <div class="cprop-value">${c.resource_limits.memory_limit}</div>
+        </div>
+      </div>`;
+    }).join('');
+
+  } catch(e) {
+    document.getElementById('docker-error').textContent = 'Failed to fetch container data: ' + e.message;
+    document.getElementById('docker-error').style.display = 'flex';
+  }
+}
+
+fetchContainers();
+setInterval(fetchContainers, 15000);
+</script>
+{% endblock %}
