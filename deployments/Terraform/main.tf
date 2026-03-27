@@ -1,7 +1,7 @@
 provider "aws" {
   region = "ap-south-1"   # Mumbai — change if needed
 }
-#===================Security Group: APP SERVER===========================================================================
+#===================Security Group: APP SERVER=1 ===========================================================================
 resource "aws_security_group" "anuj_sg" {
   name        = "anuj"
   description = "Allow SSH, HTTP, HTTPS, 5000"
@@ -60,7 +60,7 @@ resource "aws_instance" "devops_hub" {
 }
 
 }
-#===================Security Group: APP SERVER===========================================================================
+#===================Security Group: APP SERVER=2 ==========================================================================
 
 resource "aws_security_group" "jenkins_sg" {
   name        = "jenkins_sg"
