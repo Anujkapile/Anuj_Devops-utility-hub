@@ -119,7 +119,7 @@ def _pod_to_dict(pod) -> dict:
     }
 
 
-def get_k8s_pods(namespace: str = "default", all_namespaces: bool = False) -> dict:
+def get_k8s_pods(namespace: str = "all", all_namespaces: bool = True) -> dict:
     """
     Return a dict with pod summaries and aggregate counts.
 
@@ -171,7 +171,9 @@ def get_k8s_pods(namespace: str = "default", all_namespaces: bool = False) -> di
         }
 
         return {
-            "pods": pods,
+            "total": summary["total"],   # 👈 ADD THIS
+            "items": pods,              # 👈 ADD THIS
+            "pods": pods,               # (optional, keep for compatibility)
             "summary": summary,
             "namespace": "all" if all_namespaces else namespace,
             "error": None,
