@@ -16,7 +16,7 @@ pipeline {
         
         stage('Build Docker Image') {
             steps {
-                sh 'docker build -t ${DOCKER_IMAGE}:${BUILD_NUMBER} -f Docker/Dockerfile .'
+                sh 'docker build -t ${DOCKER_IMAGE}:${BUILD_NUMBER} -f Dockerfile .'
                 sh 'docker tag ${DOCKER_IMAGE}:${BUILD_NUMBER} ${DOCKER_IMAGE}:latest'
             }
         }
