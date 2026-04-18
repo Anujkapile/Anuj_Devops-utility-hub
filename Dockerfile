@@ -20,6 +20,7 @@ WORKDIR /app
 
 # Install only runtime dependencies
 RUN apk add --no-cache \
+    docker-cli\
     libffi \
     openssl
 # Copy installed packages from builder stage

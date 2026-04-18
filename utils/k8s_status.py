@@ -10,21 +10,39 @@ except ImportError:
     _K8S_AVAILABLE = False
 
 
+#def _load_kube_config() -> bool:
+ #   """Try in-cluster config first, fall back to kubeconfig file."""
+  #  if not _K8S_AVAILABLE:
+   #     return False
+   # try:
+    #    config.load_incluster_config()
+     #   return True
+   # except Exception:
+    #    pass
+   # try:
+    #    config.load_kube_config(config_file="/etc/rancher/k3s/k3s.yaml")
+     #   return True
+   # except Exception:
+    #    return False
+
 def _load_kube_config() -> bool:
     """Try in-cluster config first, fall back to kubeconfig file."""
     if not _K8S_AVAILABLE:
         return False
-    try:
-        config.load_incluster_config()
-        return True
-    except Exception:
-        pass
-    try:
-        config.load_kube_config()
-        return True
-    except Exception:
-        return False
-
+    
+    import os
+    for path in [
+        "/root/.kube/config",
+        os.path.expanduser("~/.kube/config"),
+        "/etc/rancher/k3s/k3s.yaml",
+    ]:
+        try:
+            if os.path.exists(path):
+                config.load_kube_config(config_file=path)
+                return True
+        except Exception:
+            continue
+    return False
 
 def _age(dt_str: str | None) -> str:
     """Return a human-readable age string from an ISO timestamp."""

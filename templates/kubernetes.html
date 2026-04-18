@@ -127,7 +127,7 @@ async function fetchPods() {
       document.getElementById('k8s-error').style.display = 'none';
     }
 
-    const s = d.summary;
+    const s = d.summary || d;
     document.getElementById('k-total').textContent     = s.total     || 0;
     document.getElementById('k-running').textContent   = s.running   || 0;
     document.getElementById('k-pending').textContent   = s.pending   || 0;

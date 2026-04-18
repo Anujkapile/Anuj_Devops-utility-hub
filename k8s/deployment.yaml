@@ -21,11 +21,19 @@ spec:
         imagePullPolicy: Always
         ports:
         - containerPort: 5000
-        resources:
-          requests:
-            memory: "64Mi"
-            cpu: "100m"
-          limits:
-            memory: "256Mi"
-            cpu: "500m"
-
+        volumeMounts:
+        - name: docker-sock
+          mountPath: /var/run/docker.sock  # ← ADD THIS
+      volumes:
+      - name: docker-sock
+        hostPath:
+          path: /var/run/docker.sock       # ← ADD THIS
+          type: Socket
+       #  resources:
+       #  requests:
+       #    memory: "64Mi"
+       #    cpu: "100m"
+       #  limits:
+       #    memory: "256Mi"
+       #    cpu: "500m"
+  
