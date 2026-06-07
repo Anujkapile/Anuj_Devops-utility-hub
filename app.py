@@ -67,9 +67,27 @@ def kubernetes():
 @app.route("/api/k8s/pods")
 def api_k8s_pods():
     namespace = request.args.get("namespace", "default")
-    pods = get_k8s_pods(namespace=namespace)
-    return jsonify(pods)
+#    pods = get_k8s_pods(namespace=namespace)
+    result = get_k8s_pods(namespace=namespace)
+  
+    if result.get("error"):
+        return jsonify({
+            "total": 0, "running": 0, "pending": 0,
+            "failed": 0, "succeeded": 0, "unknown": 0,
+            "pods": [],
+            "error": result["error"]
+        })
 
+    summary = result.get("summary", {})
+    return jsonify({
+        "total":     summary.get("total", 0),
+        "running":   summary.get("running", 0),
+        "pending":   summary.get("pending", 0),
+        "failed":    summary.get("failed", 0),
+        "succeeded": summary.get("succeeded", 0),
+        "unknown":   summary.get("unknown", 0),
+        "pods":      result.get("pods", [])
+    })
 # ──────────────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":

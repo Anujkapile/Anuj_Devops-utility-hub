@@ -1,0 +1,19 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: devops-hub-ingress
+  namespace: devops-hub
+  annotations:
+    kubernetes.io/ingress.class: "traefik"
+
+spec:
+  rules:
+    - http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: devops-hub-service
+                port:
+                  number: 80

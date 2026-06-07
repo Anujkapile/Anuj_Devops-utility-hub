@@ -102,7 +102,8 @@ def get_docker_containers(all_containers: bool = True) -> dict:
         }
     """
     try:
-        client = docker.from_env()
+        #client = docker.from_env()
+        client = docker.DockerClient(base_url='unix:///var/run/docker.sock')
         containers = client.containers.list(all=all_containers)
         container_list = [_container_to_dict(c) for c in containers]
 
@@ -126,11 +127,29 @@ def get_docker_containers(all_containers: bool = True) -> dict:
 def get_container_logs(container_id: str, tail: int = 100) -> dict:
     """Fetch the last *tail* lines of a container's logs."""
     try:
-        client = docker.from_env()
+       # client = docker.from_env()
+        client = docker.DockerClient(base_url='unix:///var/run/docker.sock')
         container = client.containers.get(container_id)
         raw_logs = container.logs(tail=tail, timestamps=True).decode("utf-8", errors="replace")
         return {"container_id": container_id, "logs": raw_logs, "error": None}
     except NotFound:
         return {"container_id": container_id, "logs": "", "error": f"Container '{container_id}' not found"}
     except DockerException as exc:
-        return {"container_id": container_id, "logs": "", "error": str(exc)}
+        return {"container_id": container_id, "logs": "", "error": str(exc)
+                }
+    
+
+def get_docker_status():
+    try:
+        client = docker.DockerClient(
+            base_url='unix:///var/run/docker.sock'
+        )
+        containers = client.containers.list(all=True)
+        return [{
+            "name": c.name,
+            "status": c.status,
+            "image": c.image.tags[0] if c.image.tags else "unknown",
+            "id": c.short_id
+        } for c in containers]
+    except Exception as e:
+        return [{"error": "Docker error: " + str(e)}]

@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: devops-hub
+  namespace: devops-hub  
+  labels:
+    app: devops-hub
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: devops-hub
+  template:
+    metadata:
+      labels:
+        app: devops-hub
+    spec:
+      containers:
+      - name: devops-hub
+        image: anujkapile/devops-hub:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 5000
+        volumeMounts:
+        - name: docker-sock
+          mountPath: /var/run/docker.sock  # ← ADD THIS
+      volumes:
+      - name: docker-sock
+        hostPath:
+          path: /var/run/docker.sock       # ← ADD THIS
+          type: Socket
+       #  resources:
+       #  requests:
+       #    memory: "64Mi"
+       #    cpu: "100m"
+       #  limits:
+       #    memory: "256Mi"
+       #    cpu: "500m"
+  
