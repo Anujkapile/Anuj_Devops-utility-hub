@@ -1,0 +1,131 @@
+---
+# ── Monitoring Role Tasks ──────────────────────────────────────────────
+
+# ── Node Exporter ──────────────────────────────────────────────────────
+- name: Create node_exporter user
+  user:
+    name: node_exporter
+    shell: /bin/false
+    create_home: no
+  tags: [monitoring, node_exporter]
+
+- name: Download Node Exporter
+  get_url:
+    url: "https://github.com/prometheus/node_exporter/releases/download/v{{ node_exporter_version }}/node_exporter-{{ node_exporter_version }}.linux-amd64.tar.gz"
+    dest: /tmp/node_exporter.tar.gz
+    mode: '0644'
+  tags: [monitoring, node_exporter]
+
+- name: Extract Node Exporter
+  unarchive:
+    src: /tmp/node_exporter.tar.gz
+    dest: /tmp
+    remote_src: yes
+  tags: [monitoring, node_exporter]
+
+- name: Copy Node Exporter binary
+  copy:
+    src: "/tmp/node_exporter-{{ node_exporter_version }}.linux-amd64/node_exporter"
+    dest: /usr/local/bin/node_exporter
+    remote_src: yes
+    owner: node_exporter
+    group: node_exporter
+    mode: '0755'
+  tags: [monitoring, node_exporter]
+
+- name: Create Node Exporter service
+  template:
+    src: node_exporter.service.j2
+    dest: /etc/systemd/system/node_exporter.service
+    owner: root
+    group: root
+    mode: '0644'
+  notify: restart node_exporter
+  tags: [monitoring, node_exporter]
+
+- name: Start and enable Node Exporter
+  systemd:
+    name: node_exporter
+    state: started
+    enabled: yes
+    daemon_reload: yes
+  tags: [monitoring, node_exporter]
+
+# ── Prometheus ─────────────────────────────────────────────────────────
+- name: Create Prometheus config directory
+  file:
+    path: /etc/prometheus
+    state: directory
+    mode: '0755'
+  tags: [monitoring, prometheus]
+
+- name: Create Prometheus data directory
+  file:
+    path: /var/lib/prometheus
+    state: directory
+    owner: ubuntu
+    group: ubuntu
+    mode: '0755'
+  tags: [monitoring, prometheus]
+
+- name: Copy Prometheus config
+  template:
+    src: prometheus.yml.j2
+    dest: /etc/prometheus/prometheus.yml
+    owner: ubuntu
+    group: ubuntu
+    mode: '0644'
+  tags: [monitoring, prometheus]
+
+- name: Run Prometheus container
+  docker_container:
+    name: "{{ prometheus_container }}"
+    image: prom/prometheus:latest
+    state: started
+    restart_policy: always
+    ports:
+      - "{{ prometheus_port }}:9090"
+    volumes:
+      - /etc/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - /var/lib/prometheus:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.enable-lifecycle'
+  tags: [monitoring, prometheus]
+
+# ── Grafana ────────────────────────────────────────────────────────────
+- name: Create Grafana data directory
+  file:
+    path: /var/lib/grafana
+    state: directory
+    owner: ubuntu
+    group: ubuntu
+    mode: '0755'
+  tags: [monitoring, grafana]
+
+- name: Run Grafana container
+  docker_container:
+    name: "{{ grafana_container }}"
+    image: grafana/grafana:latest
+    state: started
+    restart_policy: always
+    ports:
+      - "{{ grafana_port }}:3000"
+    volumes:
+      - /var/lib/grafana:/var/lib/grafana
+    env:
+      GF_SECURITY_ADMIN_PASSWORD: "admin123"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+  tags: [monitoring, grafana]
+
+- name: Verify monitoring services
+  command: docker ps --format "{{ '{{' }}.Names{{ '}}' }}: {{ '{{' }}.Status{{ '}}' }}"
+  register: monitoring_status
+  changed_when: false
+  tags: [monitoring]
+
+- name: Print monitoring status
+  debug:
+    msg: "{{ monitoring_status.stdout_lines }}"
+  tags: [monitoring]

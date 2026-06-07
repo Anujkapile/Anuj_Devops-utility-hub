@@ -1,0 +1,80 @@
+# ── Flask App Role Tasks ───────────────────────────────────────────────
+
+- name: Clone application from GitHub
+  git:
+    repo: "{{ github_repo_url }}"
+    dest: "{{ app_directory }}"
+    version: "{{ app_branch }}"
+    force: yes
+  become_user: "{{ app_user }}"
+  tags: [flask_app, deploy]
+
+- name: Set correct ownership of app directory
+  file:
+    path: "{{ app_directory }}"
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_user }}"
+    recurse: yes
+  tags: [flask_app]
+
+- name: Install Python dependencies
+  pip:
+    requirements: "{{ app_directory }}/requirements.txt"
+    state: present
+    extra_args: "--break-system-packages"
+  tags: [flask_app, packages]
+
+- name: Check if Docker image exists
+  command: docker images -q {{ docker_image_name }}:{{ docker_image_tag }}
+  register: docker_image_check
+  changed_when: false
+  tags: [flask_app, docker]
+
+- name: Build Docker image
+  command: >
+    docker build
+    -t {{ docker_image_name }}:{{ docker_image_tag }}
+    -f {{ app_directory }}/Docker/Dockerfile
+    {{ app_directory }}
+  tags: [flask_app, docker]
+
+- name: Stop existing container if running
+  docker_container:
+    name: "{{ docker_container_name }}"
+    state: stopped
+  ignore_errors: yes
+  tags: [flask_app, docker]
+
+- name: Remove existing container
+  docker_container:
+    name: "{{ docker_container_name }}"
+    state: absent
+  ignore_errors: yes
+  tags: [flask_app, docker]
+
+- name: Run Flask application container
+  docker_container:
+    name: "{{ docker_container_name }}"
+    image: "{{ docker_image_name }}:{{ docker_image_tag }}"
+    state: started
+    restart_policy: "{{ docker_restart_policy }}"
+    ports:
+      - "{{ flask_port }}:{{ flask_port }}"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /home/ubuntu/.kube/config:/root/.kube/config
+    env:
+      FLASK_ENV: "{{ flask_env }}"
+  tags: [flask_app, docker]
+
+- name: Verify container is running
+  command: docker ps --filter name={{ docker_container_name }} --format "{{ '{{' }}.Status{{ '}}' }}"
+  register: container_status
+  changed_when: false
+  tags: [flask_app]
+
+- name: Print container status
+  debug:
+    msg: "Container status: {{ container_status.stdout }}"
+  tags: [flask_app]

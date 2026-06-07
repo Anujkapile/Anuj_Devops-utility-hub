@@ -1,0 +1,18 @@
+---
+- name: restart node_exporter
+  systemd:
+    name: node_exporter
+    state: restarted
+    enabled: yes
+
+- name: restart prometheus
+  docker_container:
+    name: prometheus
+    state: started
+    restart: yes
+
+- name: restart grafana
+  docker_container:
+    name: grafana
+    state: started
+    restart: yes

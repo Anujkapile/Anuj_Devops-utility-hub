@@ -1,0 +1,50 @@
+---
+# ── Deploy Only Playbook ───────────────────────────────────────────────
+# Use this for quick redeployment without full setup
+# ansible-playbook playbooks/deploy.yml
+
+- name: Deploy DevOps Hub Application
+  hosts: devops_hub
+  become: yes
+  gather_facts: yes
+
+  tasks:
+    - name: Pull latest code from GitHub
+      git:
+        repo: "{{ github_repo_url }}"
+        dest: "{{ app_directory }}"
+        version: "{{ app_branch }}"
+        force: yes
+      become_user: "{{ app_user }}"
+      tags: [deploy]
+
+    - name: Build new Docker image
+      command: >
+        docker build
+        -t {{ docker_image_name }}:{{ docker_image_tag }}
+        -f {{ app_directory }}/Docker/Dockerfile
+        {{ app_directory }}
+      tags: [deploy]
+
+    - name: Restart container with new image
+      docker_container:
+        name: "{{ docker_container_name }}"
+        image: "{{ docker_image_name }}:{{ docker_image_tag }}"
+        state: started
+        restart: yes
+        restart_policy: "{{ docker_restart_policy }}"
+        ports:
+          - "{{ flask_port }}:{{ flask_port }}"
+        volumes:
+          - /var/run/docker.sock:/var/run/docker.sock
+          - /home/ubuntu/.kube/config:/root/.kube/config
+      tags: [deploy]
+
+    - name: Verify deployment
+      command: docker ps --filter name={{ docker_container_name }}
+      register: result
+      changed_when: false
+
+    - name: Show deployment status
+      debug:
+        msg: "{{ result.stdout_lines }}"

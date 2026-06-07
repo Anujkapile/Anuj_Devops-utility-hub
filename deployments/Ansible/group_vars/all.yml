@@ -1,0 +1,31 @@
+---
+# ── Application Variables ──────────────────────────────────────────────
+github_repo_url:      "https://github.com/Anujkapile/Anuj_Devops-utility-hub.git"
+app_directory:        "/opt/devops-utility-hub"
+app_branch:           "main"
+
+# ── Docker Variables ───────────────────────────────────────────────────
+docker_image_name:     "devops-hub"
+docker_image_tag:      "latest"
+docker_container_name: "devops-hub"
+docker_restart_policy: "always"
+
+# ── Flask Variables ────────────────────────────────────────────────────
+flask_port:  5000
+flask_env:   "production"
+
+# ── Nginx Variables ────────────────────────────────────────────────────
+nginx_port:       80
+nginx_conf_path:  "/etc/nginx/sites-available/devops-hub"
+
+# ── Monitoring Variables ───────────────────────────────────────────────
+prometheus_port:      9090
+grafana_port:         3000
+node_exporter_port:   9100
+node_exporter_version: "1.7.0"
+
+prometheus_container:  "prometheus"
+grafana_container:     "grafana"
+
+# ── System Variables ───────────────────────────────────────────────────
+app_user:  "ubuntu"

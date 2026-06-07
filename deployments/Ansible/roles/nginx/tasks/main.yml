@@ -1,0 +1,45 @@
+---
+# ── Nginx Role Tasks ───────────────────────────────────────────────────
+
+- name: Install Nginx
+  apt:
+    name: nginx
+    state: present
+  tags: [nginx]
+
+- name: Remove default Nginx config
+  file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+  notify: restart nginx
+  tags: [nginx]
+
+- name: Create Nginx config for DevOps Hub
+  template:
+    src: devops-hub.conf.j2
+    dest: "{{ nginx_conf_path }}"
+    owner: root
+    group: root
+    mode: '0644'
+  notify: restart nginx
+  tags: [nginx]
+
+- name: Enable Nginx site
+  file:
+    src: "{{ nginx_conf_path }}"
+    dest: /etc/nginx/sites-enabled/devops-hub
+    state: link
+  notify: restart nginx
+  tags: [nginx]
+
+- name: Test Nginx configuration
+  command: nginx -t
+  changed_when: false
+  tags: [nginx]
+
+- name: Start and enable Nginx
+  systemd:
+    name: nginx
+    state: started
+    enabled: yes
+  tags: [nginx]

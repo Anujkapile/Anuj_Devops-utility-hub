@@ -1,0 +1,54 @@
+---
+# ══════════════════════════════════════════════════════════════════════
+# DevOps Utility Hub - Main Site Playbook
+# ══════════════════════════════════════════════════════════════════════
+
+# ── Play 1: Setup Instance 1 (Docker + K3s + Flask App) ───────────────
+- name: Setup DevOps Hub Application Server
+  hosts: devops_hub
+  become: yes
+  gather_facts: yes
+
+  roles:
+    - role: common
+      tags: [common]
+
+    - role: docker
+      tags: [docker]
+
+    - role: flask_app
+      tags: [flask_app, deploy]
+
+    - role: nginx
+      tags: [nginx]
+
+  post_tasks:
+    - name: Print application URL
+      debug:
+        msg: "✅ DevOps Hub is running at http://{{ ansible_host }}:{{ flask_port }}"
+      tags: [always]
+
+# ── Play 2: Setup Instance 3 (Prometheus + Grafana) ───────────────────
+- name: Setup Monitoring Server
+  hosts: monitoring
+  become: yes
+  gather_facts: yes
+
+  roles:
+    - role: common
+      tags: [common]
+
+    - role: docker
+      tags: [docker]
+
+    - role: monitoring
+      tags: [monitoring]
+
+  post_tasks:
+    - name: Print monitoring URLs
+      debug:
+        msg:
+          - "✅ Prometheus : http://{{ ansible_host }}:{{ prometheus_port }}"
+          - "✅ Grafana    : http://{{ ansible_host }}:{{ grafana_port }}"
+          - "✅ Node Exporter: http://{{ ansible_host }}:{{ node_exporter_port }}/metrics"
+      tags: [always]

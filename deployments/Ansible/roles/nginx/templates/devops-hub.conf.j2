@@ -1,0 +1,37 @@
+server {
+    listen {{ nginx_port }};
+    server_name _;
+
+    # Logs
+    access_log /var/log/nginx/devops-hub.access.log;
+    error_log  /var/log/nginx/devops-hub.error.log;
+
+    # Proxy to Flask app
+    location / {
+        proxy_pass         http://localhost:{{ flask_port }};
+        proxy_http_version 1.1;
+
+        # Headers
+        proxy_set_header   Host              $host;
+        proxy_set_header   X-Real-IP         $remote_addr;
+        proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+        proxy_set_header   Upgrade           $http_upgrade;
+        proxy_set_header   Connection        "upgrade";
+
+        # Timeouts
+        proxy_connect_timeout  60s;
+        proxy_send_timeout     60s;
+        proxy_read_timeout     60s;
+
+        # Buffer settings
+        proxy_buffering    on;
+        proxy_buffer_size  128k;
+        proxy_buffers      4 256k;
+    }
+
+    # Health check endpoint
+    location /health {
+        proxy_pass http://localhost:{{ flask_port }}/health;
+    }
+}
