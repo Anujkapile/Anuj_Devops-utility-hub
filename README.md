@@ -5,6 +5,7 @@ A lightweight, self-hosted Flask web dashboard for common DevOps tasks — syste
 ---
 ![Project Screenshot](1776182945914.png)
 
+![Uploading 1776182945914.png…]()
 
 ## Features
 
