@@ -3,6 +3,8 @@
 A lightweight, self-hosted Flask web dashboard for common DevOps tasks — system monitoring, log analysis, Docker container status, and Kubernetes pod health.
 
 ---
+![Project Screenshot](1776182945914.png)
+
 
 ## Features
 
