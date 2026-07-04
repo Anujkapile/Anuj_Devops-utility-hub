@@ -142,6 +142,26 @@ sudo usermod -aG docker $USER
 - **Port** — change `port=5000` in `app.py` or set the `PORT` environment variable.
 
 ---
+## Output
+Jenkins
+<img width="1057" height="623" alt="2" src="https://github.com/user-attachments/assets/db6d4d22-193a-4b76-810b-613641c9b97a" />
+Docker
+<img width="1080" height="371" alt="3" src="https://github.com/user-attachments/assets/881bb1ed-8972-408f-b1fa-87e439c6d43b" />
+
+K8s
+<img width="1080" height="714" alt="4" src="https://github.com/user-attachments/assets/b13f43a4-2dfc-4503-9941-b79be7a635d1" />
+
+Prometheus
+<img width="1080" height="598" alt="5" src="https://github.com/user-attachments/assets/f560a2b8-9c13-4032-b3ff-679ce92adfb3" />
+
+Grafana
+<img width="1080" height="592" alt="WhatsApp Image 2026-07-04 at 11 19 02 PM" src="https://github.com/user-attachments/assets/d8b66da4-a263-48e5-81ed-88c9a69c9526" />
+
+#Final outout
+<img width="1080" height="555" alt="image" src="https://github.com/user-attachments/assets/701b24cc-bc3e-4ee3-96e3-d266d6f89166" />
+<img width="1080" height="563" alt="image" src="https://github.com/user-attachments/assets/cec31e03-8468-428d-91db-0aeb4d9f3863" />
+<img width="1080" height="584" alt="image" src="https://github.com/user-attachments/assets/fed181c7-73ee-4733-8fb0-8dddf70a5388" />
+<img width="1080" height="605" alt="image" src="https://github.com/user-attachments/assets/21f748e5-3ae1-454d-a609-92a5b8721a65" />
 
 ## License
 
